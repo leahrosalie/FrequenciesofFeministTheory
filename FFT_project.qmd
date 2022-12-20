@@ -1,0 +1,1076 @@
+---
+title: "Frequencies of Feminist Theory"
+author: "Leah Dion"
+desription: "A techno-metacritical exploratory analysis of text from the feminist journals Signs, Feminist Theory, and Feminist Review from 1975-2016."
+date: "12/20/2022"
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-copy: true
+    code-tools: true
+---
+
+
+```{r include = FALSE}
+#| label: setup
+#| warning: false
+#| echo: false
+
+library(tidyverse)
+library(wordcloud)
+library(wordcloud2)
+library(tidytext)
+library(viridis)
+
+#save.image("FFT_memo.RData")
+load("FFT_memo.RData")
+```
+
+#### Abstract
+
+Frequencies of Feminist Theory is a techno-metacritical exploratory analysis of text from the feminist journals Signs, Feminist Theory, and Feminist Review from 1975-2016. Using Clare Hemmings analysis from *Why Stories Matter* as a guide, I aim to explore stories told in feminist journal articles by comparing frequencies of terminology across time. Does her rigorous analysis map onto the trends unveiled in structural topic modeling? What effect did Hemmings' book have on topic prevalence? Feminists could benefit from supplementing archival research with unsupervised machine learning methods, and might be the most well-suited to scrutinize its implementation.
+
+# Introduction
+
+In her book *Why Stories Matter: The Political Grammar of Feminist Theory,* Clare Hemmings takes to the task of disentangling familiar and conflicting stories told of feminist theory's past contributors and their work. Her goal in this retelling is to explore the ways the stories can undermine logical arguments in essentializing ways similar to those the arguments claim to be against. She narrows this down to three common overarching narratives found in popular feminist theory journals -- progress, loss, and return.
+
+Hemmings identifies how each arch contains contradictory logic to the others, yet various factions of feminists and feminisms share differing sentiments in reference to *the same time periods*. Collectively, these stories dislocate writers, their work, and their thinking from the overlapping dialogues occurring during the time of their writing. The text itself thus takes a back seat to the stories, which are perpetuated and further naturalized within the gloss of feminist journal articles.
+
+To Hemmings, feelings of progress mark present day thought and knowledge as evolved beyond the more limited thinking of earlier times. For example, the 1970s are commonly seen as the site of a lesbian separatist movement centered around an essentialized definition of what is a woman. One shared perspective from 2022 is to think "look how far we've come from our ill-begotten past".
+
+Loss flips the feeling of progress and instead focuses on a longing for how things used to be; a suggestion that prior times had it right and we've diverged from our mission. Thinking again to the 1970s, another shared feminist perspective from 2022 is a sadness for the loss of a stable category of woman to share as a unifying identity.
+
+A return narrative then seems to extend the idea of loss by adding a desire to reclaim the present and return to the good old days. Good for whom? That very often lies in the eyes of the storyteller. This view has also been weaponized by a small fragment of purported feminists aligning against gender troubled others typically seen as responsible for the relative deconstruction of the category of gender. Often referred to as trans exclusionary radical feminists, these groups are essentially determined to reestablish the label of woman as exclusive to those assigned female at birth.
+
+Individually, these shared ideologies risk misinterpreting texts from prior decades by focusing primarily on the language orientations of a so-called modernity rather than the persistence of the underlying sytemic frameworks. Collectively, they reveal an apparent thirst for a tidy truth that neatly aligns with a unifying, shared experience in relation to prior time periods. One that Hemmings believes paradoxically unravels the reflexive praxis offered by feminist theory in the first place.
+
+# Research questions
+
+Using Clare Hemmings' textual analysis from *Why Stories Matter*, I have two main questions in mind guiding my research:
+
+1.  How does Hemmings' depiction of the stories told in the gloss of feminist journal articles compare to the temporal frequencies of terminology found in a selection of feminist journals?
+2.  Using the January 2011 publication of *Why Stories Matter* (and Hemmings' paper from 2005, "Telling Feminist Stories") as markers in time, have there been any apparent shifts in citation tactics or conceptual discussions in feminist journal articles?
+
+## Feminist Methodology
+
+To answer these questions I will borrow methods offered by Hemmings in her book -- the primary of which is her use of citation tactics, which involves comparing text across journals rather than by individual authors. She emphasizes this as "a way of foregrounding knowledge practices as shared rather than individual" (21). Since feminist theory, and arguably theory in general, exists as a result of overlapping dialogues of thought, an attention to the cumulative impacts of the text itself resists the urge to centralize any singular writer, an important objective of feminist theory and of Hemmings' argument in whole.
+
+Clare Hemmings' approach congeals around citation as she indicates "it anchors an overall chronology, provides a semblance of detail, and has an appropriate status as evidence" (22) of the narrativization she highlights. In practice, this means citing journals and years of publication rather than the author of each article to attend to the collective repetition of narratives. In my analysis I thus focused on the collective knowledge production of journals over the work of individual authors when gathering inferences and making comparisons.
+
+# Text-as-data
+
+My project begins with an exploratory analysis into the text-as-data, which includes tokenized unigrams and metadata for each article published in the academic journals *Signs*, *Feminist Review*, & *Feminist Theory* from 1975-2016. The data was compiled and downloaded in CSV format from [Constellate](https://constellate.org).
+
+For unigrams, each token represents a single word from the text. In the bigram data, the tokens are formulated by every possible permutation of two words appearing next to one another in the text. Since the order matters in these pairings, the number of unique tokens increases significantly for the bigrams and then trigrams, which contain counts for every three-word permutation in the text.
+
+## Pre-processing
+
+The CSV file containing the tokenized unigrams needed more processing prior to any model implementation or descriptive summaries about the data. Any punctuation left in the corpus will keep `gender` and `gender,` distinguished from one another and have separate counts for each, leaving the distribution of their frequencies dependent upon the randomness of sentence structuring. Likewise, there are very common stop words that, in unigram token counts, don't add any meaning worth keeping them in the data and models.
+
+The following decisions were made to consolidate and aggregate the word frequencies:
+
+1.  Remove punctuation - counts of matching terms are less accurate due to proximity to punctuation; possessive form is not useful to separate from plural form since these are unigrams.
+2.  Convert to lowercase - counts of matching terms are less accurate due to whether they begin a sentance; one downside is this will combine proper nouns with common ones, though this shouldn't be significant.
+3.  Remove numbers - numbers require context to interpret, which isn't available with unigrams; one exception was to keep numbers indicative of reference to a decade (i.e. 1970s or 70s) to have a sense of when each decade is most frequently discussed.
+4.  Remove common stop words like "the", "and", "or" using the `tidytext` package.
+5.  Remove symbols and non-alphanumeric characters.
+6.  Remove stop words common to publishing and the three journals.
+7.  Remove tokens with a corpus-wide count less than ten.
+8.  Remove Spanish stop words; some texts contain Spanish words and phrases, common ones such as "el", "y", "esta" do not add meaning to the model.
+
+The dataset began with just under 14 million rows, with each row observation being on a token-per-document level, with 1.14 million unique tokens. After the six steps above, it contained 7.88 million rows and 64 thousand unique tokens.
+
+After looking at distributions of document level variables such as *wordCount* and *docSubType,* all non-article documents were removed, such as cover pages, images, and book reviews. Additionally, following the approach of Goldstone, et al. (2014) I removed all documents with a total word count less than 800 words.
+
+Finally, the dimensions of the corpus used in structural topic modeling was been reduced down to 5.9 million lines containing 63,583 unique tokens.
+
+## Data summary
+
+The corpus contains 4,121 documents and 8 metadata features from the journals *Signs*, *Feminist Review*, and *Feminist Theory* between 1975-2016. The metadata for each document is contained in the variables *journal*, *datePublished*, *publicationYear*, *decade*, *bHaH_2005*, *bHaH_2011*, *wordCount*, and *pageCount*.
+
+**Note:** *bHaH_2005, bHaH_2011* are each indicator variables (either 1 or 0) that represent whether or not that particular document was published before Hemmings publications (bH) or after Hemmings publications (aH).
+
+The wordcloud below is not very revealing of the words used in feminist journals. None of the words are surprising, but this represents about 42 years of academic literature so in the long term you could very likely expect to see these pop up within it. One important note is that the frequency distributions of "feminist", "review", and "theory" are each exaggerated counts due to the overlap in the names of journals. This can be accounted for in future work (see the next steps section for more details), but remain in the dataset nonetheless because they are also important words in feminist texts and appear frequently regardless.
+
+```{r}
+#| label: main wordcloud
+#| echo: false
+
+# filter for 150 most frequent tokens
+top_150 <- finalCorpus %>%
+  group_by(token) %>%
+  summarise(count = sum(count)) %>%
+  arrange(desc(count)) %>%
+  slice(1:150)
+
+# main wordcloud
+set.seed(5443)
+wordcloud2(top_150, 
+           color = "random-light", 
+           backgroundColor = "black", 
+           size = 1, 
+           minRotation = -pi/2, 
+           maxRotation = pi/2, 
+           rotateRatio = .45, 
+           shuffle = FALSE)
+```
+
+The most frequent word in the corpus is "women" with 291,447 occurrences, followed by 'feminist' with less than half that (118,191) and 'womens' at 105,995 occurrences. A brief note again that punctuation has been removed and these tokens are single words. Thus, "womens" represents *women's* in the possessive since "women" is already the plural of "woman" and both of those are also in the dataset.
+
+The plots in Fig. 1 and Fig. 2 below show the patterns of total word count per document and unique word count per document, respectively, by journal over time. Nearly identical lines -- they are highly correlated at 0.98 -- suggesting a relative consistency long-term trend.
+
+There is a noticeable shift between the journals happening when crossing into the 1990s where *Feminist Review* declines and *Signs* dips slightly before both jump to their peak in the mid-90s. Two patterns that stand out here: 1) the gap between these two journals between the interval of 1986-2004 appears to be significant, 2) the overall trend of these two journals follows a very similar trajectory, including a large spike in 1996 before beginning to stabilize at around 7500-8000 words per document (1500 unique words) with the innaugural publication of *Feminist Theory* in 2000.
+
+What may have happened in the 90s to see a heavy increase in the verbosity of these feminist texts followed by a precipitous decline in to the 2000s? It is possible that a mistake was made during pre-processing, causing the divergence. However, that doesn't account for why both the total word counts and unique word counts of each journal follow the same or similar patterns.
+
+```{r}
+#| label: main decade wordcloud
+#| echo: false
+#| include: false
+
+unigram_decade <- finalCorpus %>%
+  mutate(decadeToken = paste(decade, token, sep = "")) %>%
+  select(decadeToken, count)
+
+# filter for 100 most frequent tokens
+top_100_decade <- unigram_decade %>%
+  group_by(decadeToken) %>%
+  summarise(count = sum(count)) %>%
+  arrange(desc(count)) %>%
+  slice(1:100)
+
+# main wordcloud
+wordcloud2(top_100_decade, 
+           color = "random-light", 
+           backgroundColor = "black", 
+           size = .25,
+           minRotation = -pi/2, 
+           maxRotation = pi/2, 
+           rotateRatio = .45, 
+           shuffle = FALSE)
+```
+
+```{r}
+#| label: get data for word count plots
+#| echo: false
+
+wordCount_plot <- finalCorpus %>%
+  select(docID, publicationYear, wordCount, token, journal) %>%
+  group_by(publicationYear, journal) %>%
+  mutate(mean.wordCount = mean(wordCount)) %>%
+  group_by(publicationYear, docID) %>%
+  mutate(uniqueWords = length(unique(token))) %>%
+  group_by(publicationYear, journal) %>%
+  mutate(mean.uniqueWords = mean(uniqueWords)) %>%
+  distinct(publicationYear, mean.wordCount, mean.uniqueWords) %>%
+  ungroup() %>%
+  arrange(publicationYear)        
+```
+
+```{r}
+#| label: plot mean total word count
+#| echo: false
+
+wordCount_plot %>%
+  ggplot(aes(x = publicationYear, y = mean.wordCount, group = journal, color = journal)) +
+  geom_point(shape = 19, size = 2.5) +
+  geom_line() +
+  scale_color_manual(values = plasma(4)) +
+  ggtitle("Figure 1: Mean total word count over time by journal",
+          subtitle = "Time-series comparison between Signs, Feminist Review, and Feminist Theory") +
+  xlab("") +
+  ylab("count") +
+  theme_linedraw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.subtitle = element_text(size = 8, color = "black")) +
+  theme(plot.title = element_text(size = 12, face = "bold", colour = "black"))
+```
+
+```{r}
+#| label: plot mean unique word count
+#| echo: false
+
+wordCount_plot %>%
+  ggplot(aes(x = publicationYear, y = mean.uniqueWords, group = journal, color = journal)) +
+  geom_point(shape = 19, size = 2.5) +
+  geom_line() +
+  scale_color_manual(values = plasma(4)) +
+  ggtitle("Figure 2: Mean unique word count over time by journal",
+          subtitle = "Time-series comparison between Signs, Feminist Review, and Feminist Theory") +
+  xlab("") +
+  ylab("count") +
+   theme_linedraw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.subtitle = element_text(size = 8, color = "black")) +
+  theme(plot.title = element_text(size = 12, face = "bold", colour = "black"))
+```
+
+Setting the word counts aside for a moment, let's look at Fig. 3 below, which represents a comparison of the temporal trends in usage of the terms "butler", "foucault", "wittig", and "poststructuralism". One of Hemmings' key sticking points is in the frequency with which Judith Butler and Michel Foucault are cited together when authors attempt to interogate poststructuralism. Despite the fact that Butler cites theorist Monique Wittig just as much as Foucault in Butler's pivotal book *Gender Trouble*, Wittig is far less likely to be cited, nearly removing her from the conversation entirely.
+
+Thus, rather than maintaining a more generous genealogical representation of Wittig's influence, she is lost among the cadre of purported separatist lesbians forever trapped within the liminal confines of the 1970s. The line plot mimics this trend precisely, starting from the latter half of the 1990s and continuing through nearly the entire 2000s when, in 2009, the number of references to Wittig peaks above Foucault for the only time in this span. References to Butler dipped simultaneously in the same year, with only 50-75 uses separating the three writers.
+
+```{r}
+#| label: add year counts and probabilities
+#| echo: false
+
+word_counts <- finalCorpus %>%
+  mutate(docCount = count, token = token) %>%
+  select(token, docCount, publicationYear, decade, journal) %>%
+  group_by(publicationYear, token) %>%
+  mutate(yearCount = sum(docCount), .after = docCount) %>%
+  group_by(publicationYear) %>%
+  mutate(yearProb = yearCount / sum(yearCount), .after = yearCount)
+```
+
+```{r}
+#| label: butler, foucault, wittig, poststructuralism plot
+#| echo: false
+
+word_counts %>%
+  filter(token %in% c("foucault", "poststructuralism", "butler", "wittig")) %>%
+  ggplot(aes(x = publicationYear, y = yearCount, group = token, color = token)) +
+  geom_point(shape = 19, size = 2.5) +
+  geom_line() +
+  scale_color_manual(values = viridis(4)) +
+  ggtitle("Figure 3: Frequency of select tokens over time",
+          subtitle = "Comparing usage of poststructuralism with Judith Butler, Michel Foucault, and Monique Wittig") +
+  xlab("") +
+  ylab("count") +
+  theme_linedraw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.subtitle = element_text(size = 8, color = "black")) +
+  theme(plot.title = element_text(size = 12, face = "bold", colour = "black"))
+```
+
+Clare Hemmings published her piece "Telling Feminist Stories" in 2005, so the boost to Wittig and reduction of Butler mentions curiously aligns with the brief period of time following her paper. Interestingly, both Butler and Foucault see a spike following 2009 while Wittig drops back to a previous volume. Perhaps Hemmings sparked a reflection in citation tactics among feminist theorists, which could be reflected in the fluctuation in these counts? It's hard to make causal claims based of this plot alone, but there are certainly signs that indicate the possibility.
+
+Another popular critique of Judith Butler and *Gender Trouble* is the density of their prose, with frequent complaints contending that it is arduous and difficult to read or interpret. The upward trend in word counts and unique words per document corresponds to that of citations of Butler, perhaps the author most identified as being too verbose.
+
+It's hard to make any claims without going deeper into the statistical variance structures and historical events at play here. Future work should investigate this relationship further, including checking correlations, ANOVA analysis, and hypothesis testing.
+
+# Structural topic modeling
+
+A structural topic model (STM) was implemented to identify topical overlaps in discourse within feminist journals. STM is a mixed-membership model and has several advantages over the simpler LDA approach because topics can be correlated, STM incorporates metadata into topic modeling using prevalence and content covariates, and it can estimate the effects of covariates on topics and documents.
+
+## Choosing *K* (number of topics)
+
+The most important parameter in topic modeling is determining how many topics to generate through the text. Smaller corpora are best modeled using 5-15 topics, while larger corpora can contain anywhere from 50-200 topics. Goldstone et al. (2014) used 70 topics in their LDA model so I used that as my starting point before eventually choosing *K =* 85 in both of the STM models. This allowed for a more accurate and granular distinction between topics, though ultimately an even larger number may be more appropriate.
+
+After analyzing the topics, their top words, and the highest probability documents in the topics, I labeled each by referencing the most common words, FLEX, Lift, and Score metrics. The final labeling decision for each topic was determined by my (admitedly limited) scholarly expertise, which again was reflective of the work done by Goldstone et al. in *Signs\@40.*
+
+```{r}
+#| label: topic labels
+#| echo: false
+
+topic_labels <- c(`1` = "Feminist Theory",
+                  `2` = "Education",
+                  `3` = "Globalization",
+                  `4` = "Disability/Trans",
+                  `5` = "Germany",
+                  `6` = "Theory of Sexuality",
+                  `7` = "Mental Health",
+                  `8` = "Eastern Europe",
+                  `9` = "Sexual Violence",
+                  `10` = "China",
+                  `11` = "Media/Online",
+                  `12` = "Prison",
+                  `13` = "Indigenous/Aboriginal",
+                  `14` = "Info/Tech",
+                  `15` = "Lesbian & Gay",
+                  `16` = "Beauty",
+                  `17` = "Motherhood",
+                  `18` = "Reproductive Medicine",
+                  `19` = "Islam",
+                  `20` = "Feminist Movements",
+                  `21` = "Childhood",
+                  `22` = "Bollywood",
+                  `23` = "Israel",
+                  `24` = "Women's Studies",
+                  `25` = "Abortion",
+                  `26` = "Sexuality",
+                  `27` = "War",
+                  `28` = "Diet/Weight",
+                  `29` = "Evolution/Science",
+                  `30` = "India",
+                  `31` = "Black Feminism",
+                  `32` = "Slavery",
+                  `33` = "Marxism",
+                  `34` = "Factory Labor",
+                  `35` = "Politics of Difference",
+                  `36` = "Marriage & Family",
+                  `37` = "Missionaries",
+                  `38` = "Citizenship",
+                  `39` = "Affect & Dance",
+                  `40` = "Care Work",
+                  `41` = "Women & Art",
+                  `42` = "Film",
+                  `43` = "Family & Poverty",
+                  `44` = "U.S. Women's Lit",
+                  `45` = "Domestic & Urban",
+                  `46` = "Housework",
+                  `47` = "Borders",
+                  `48` = "Birth",
+                  `49` = "West/East",
+                  `50` = "Sex Work",
+                  `51` = "Fiction/Woolf",
+                  `52` = "Memory/Trauma",
+                  `53` = "Domestic Violence",
+                  `54` = "Middle East",
+                  `55` = "Speech",
+                  `56` = "The Social",
+                  `57` = "Visual Art",
+                  `58` = "Rural Labor",
+                  `59` = "Women's Roles",
+                  `60` = "French Feminism",
+                  `61` = "Activism/Protest",
+                  `62` = "Poetry",
+                  `63` = "Intersectionality",
+                  `64` = "Law",
+                  `65` = "Reproductive Biology",
+                  `66` = "Mathematics",
+                  `67` = "Medievel Women",
+                  `68` = "Lit Crit",
+                  `69` = "Migrant Work",
+                  `70` = "Military Violence",
+                  `71` = "Africa",
+                  `72` = "Family & Love",
+                  `73` = "Legal Studies",
+                  `74` = "Caribbean Feminism",
+                  `75` = "Queer Theory",
+                  `76` = "Race in the U.S.",
+                  `77` = "Sexual Revolution",
+                  `78` = "Industrial Revolution",
+                  `79` = "Human Development",
+                  `80` = "18th Century Lit",
+                  `81` = "Butch Lesbian",
+                  `82` = "U.S. Women's History",
+                  `83` = "Ireland",
+                  `84` = "Sexual Abuse",
+                  `85` = "Riot Grrl")
+```
+
+```{r}
+#| label: topic prevalence barchart 
+#| echo: false
+
+race_topics <- as.character(c(4, 1, 15, 13, 
+                              20, 24, 26, 31, 
+                              33, 35, 59, 61, 
+                              62, 63, 75, 82))
+
+labelProp %>%
+  mutate(Label = reorder_within(Label, Proportion, Topic)) %>%
+  slice(1:25) %>%
+  ggplot(aes(Label, Proportion)) +
+  geom_col(fill = "#ada8c3", color = "#101c2a", linewidth = .25) +
+  ggtitle("Figure 4: Top 25 corpus level topic proportion estimates",
+          subtitle = "Structural topic model fit using K = 85 topics") +
+  ylab("topic proportions") +
+  xlab("") +
+  scale_x_reordered() +
+  coord_flip() +
+  theme_linedraw() +
+  theme(axis.text.x = element_text(color = "black", angle = 45, 
+                                   vjust = 1, hjust=1),
+        axis.text.y = element_text(color = "black")) +
+  theme(plot.subtitle=element_text(size=8, color="black", vjust = -1)) +
+  theme(plot.title=element_text(size=12, face="bold", colour="black", vjust=-1))
+```
+
+## Model 1
+
+The topic model allows prevalance to be measured by *journal*, *publicationYear*, and *bHaH_2011*. The covariates allow texts to be grouped across 42 years, three academic journals, and whether or not the publication came before Hemmings (B.H.) or after Hemmings (A.H.)
+
+**Model 1** was fit with the following parameters:
+
+-   *N* = 4121 documents
+
+-   *V* = 63583 tokens
+
+-   *K* = 85 topics
+
+-   prevalence = \~ *journal* + *publicationYear* + *bHaH_2011*
+
+-   $\lambda$ = .001,
+
+where $\lambda$ is the convergence parameter that determines when to stop iterating. The value for $\lambda$ was chosen due to limited computing capacity.
+
+### Prevalence of topics over time
+
+The time-series effects plots in Fig. 5 below are a measure of the effect of *publicationYear* and it's relation to how prevalent each topic is in any year. Each line represents the change in prevalence over time for that topic, which is written in the black box above each smaller plot. The grey area behind the color line is the area (approximate distribution) generated by the curve of the other 15 topics. Put together, the color line and greyed lines show the relationship between each topic and the other topics in this selection.
+
+```{r}
+#| label: topic prevalence over time
+#| echo: false
+
+select_topics <- as.character(c(4, 1, 15, 13, 
+                                20, 24, 26, 31, 
+                                33, 35, 59, 61, 
+                                62, 63, 75, 82))
+
+df <- pubYear_effect %>%
+  mutate(topicLabel = recode(topic, !!!topic_labels), 
+         .after = topic) %>%
+  filter(topic %in% select_topics)
+
+df2 <- select(df, -topicLabel)
+
+ggplot(df, aes(x = covariate.value,
+               y = estimate)) +
+  geom_line(data = df2, colour = "grey70", linewidth = .25, alpha = .8) +
+  geom_line(aes(colour = topicLabel), linewidth = 1) +
+  ggtitle("Figure 5: Visualizing topical prevalence effects over time",
+          subtitle = "Corpus includes all articles from Signs, Feminist Review, and Feminist Theory from 1975-2016.") +
+  xlab("") +
+  ylab("covariate effect") +
+  theme_linedraw() +
+  facet_wrap(~ topicLabel) +
+  theme(legend.position = "none") +
+  theme(strip.text = element_text(size = 8)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.subtitle=element_text(size = 8, color = "black")) +
+  theme(plot.title=element_text(size = 12, face = "bold", colour="black")) +
+  scale_color_manual(values = turbo(16))
+```
+
+Take the plot in the lower right labeled Women's Roles for example. According to this graph, the prevalence of the topic Women's Roles peaked in the mid-70s before a sharp and then eventually slow decline. The grey area behind the curve indicates that Women's Roles was one of the most prevelant topics in the 70s as it reaches the upper bound of the grey curves. Further along into the 2000s the topic prevelance is more towards the middle of the larger group of sixteen topics as others fluctuate around it.
+
+A simple interpretation of this could naturally fall into a progress narrative, as a movement away from essentialized gender roles such as that of a housewife. From there could proceed an argument on women's liberation in that, yes, women's labor and social organization can indeed also be extracted through capitalist enterprise - huzzah!
+
+Likewise, a perspective of loss or return could project onto the trend as the abandoning of family oriented life when women went to work. And then, what of the destruction of maternal care in its wake? See Handmaid's Tale and countless other dystopian representations of our current societal drudgery for further exploration of this speculative process.
+
+What if, however, we invoked Eve Sedgwick in an attempt at a more generous reading of this retelling of historical trends?
+
+```{r}
+#| label: womens roles wordcloud
+#| echo: false
+
+word59 <- td_betaViz %>%
+  filter(topic == 59) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word59$term, 
+          freq = word59$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+The wordcloud above shows the top 100 most probable tokens in the Women's Roles topic. A cursory glance reveals many mostly generic terms vaguely associated with women's roles in society.
+
+Looking back to the effects plots in Fig. 5, the horizontal line at zero is indicative of whether time had a positive or negative effect on the prevalence of the topic. Despite the apparent steady decline of the prevalence of the topic over time, the line for Women's Roles never moves below zero. Thus, the effect of increasing years is an increasingly less positive effect, though never actually a negative effect on the topic prevalence.
+
+A more generous reading might also consider how topics at the forefront of dialogue in the 1970s may have included more direct references to archytypical women's roles such as that of a housewife. Though the language used at the time resembles an essentialized definition of a woman today, a closer read of the texts within the topic could uncover an anti-capitalist, antiracist lens that still maps nicely onto critiques of neoliberal identity politics in 2022.
+
+Another likely interpretation could be that, over time, usage of the terminology associated with the topic Women's Roles (according to the STM) has tapered and the issues discussed under that topic have migrated to other areas of feminist theory. A deeper look into each of the topics and documents associated with them could help answer this question.
+
+Together, the topics and their linear time trends can give an insight into the stories being told in feminist journals, though much work is still necessary to validate any assumptions held about the model.
+
+## Model 2
+
+Structural topic models fit with content covariates allow the content to vary by some feature of the metadata. **Model 2** was fit by adding journal as a content parameter to the stm function.
+
+**Model 2** was fit with the following parameters:
+
+-   *N* = 4121 documents
+
+-   *V* = 63583 tokens
+
+-   *K* = 85 topics
+
+-   prevalence = \~ *journal* + *publicationYear* + *bHaH_2011*
+
+-   content = \~ journal
+
+-   $\lambda$ = .01,
+
+where $\lambda$ is the convergence parameter that determines when to stop iterating. The value for $\lambda$ was chosen due to limited computing capacity.
+
+### Estimated effects plots
+
+Below are two plots: one measuring the effect of *journal* on topical prevalence (Fig. 10) and the other estimating the effect of the year 2011, and Hemmings' publication of *Why Stories Matter*, on topical prevalence (Fig. 11).
+
+```{r}
+#| label: estimated journal effect
+#| echo: false
+
+journalEffect %>%
+  mutate(topicLabel = recode(topic, !!!topic_labels), 
+         .after = topic) %>%
+  filter(topic %in% c(1, 24, 35, 75)) %>%
+  ggplot(aes(x = estimate, y = covariate.value,
+             xmin = ci.lower, xmax = ci.upper,
+             color = covariate.value)) +
+  geom_errorbarh(height = .25, linewidth = .75) +
+  geom_point(size = 2, shape = 4) +
+  facet_wrap(~ topicLabel, nrow = 2) +
+  theme_linedraw() +
+  labs(x = "expected topic proportion",
+       y = "") +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(color = "black", angle = 45, 
+                                   vjust = 1, hjust = 1)) +
+  scale_color_manual(values = c("#f7838d", "#7f73e3", "#598d39")) +
+  ggtitle("Figure 10: Estimated effect of journal covariate on topics over time",
+          subtitle = "Articles from Signs, Feminist Review, & Feminist Theory from 1975-2016.") +
+  theme(plot.subtitle=element_text(size=8, color="black")) +
+  theme(plot.title=element_text(size=12, face="bold", colour="black"))
+```
+
+```{r}
+#| label: bHaH effect
+#| echo: false
+
+bHaH_effect %>%
+  filter(topic %in% select_topics) %>%
+  mutate(topicLabel = reorder(topicLabel, estimate)) %>%
+  ggplot(aes(y = topicLabel, x = estimate, 
+             xmin = ci.lower, xmax = ci.upper)) +
+  geom_point(color = "#eb758a", size = 2, shape = 4) + 
+  geom_vline(xintercept=0, color='black', linetype = 'dashed', alpha = .5) +
+  geom_errorbarh(height = .45, color = "#eb758a", linewidth = .75) +
+  theme_linedraw() +
+  ggtitle("Figure 9: Estimated effect of 2011 on topic prevalence",
+          subtitle = "The book Why Stories Matter was published in 2011.") +
+  xlab("") +
+  ylab("") +
+  theme(plot.subtitle=element_text(size=8, color="black")) +
+  theme(plot.title=element_text(size=12, face="bold", colour="black"))
+```
+
+I have yet to make many insights into these plots and plan to produce more of them for different topics with an additional appendix of figures. The *bHaH_2011* effects plot is more indicative of the formations happening before and after that year, irrelevant to Hemmings' book. However, it may be more revealing of what her 2005 paper was emphasizing within the adjacent years; that of an overarching narrative centered around difference and resulting in an alienation between generations of thinkers and theorists.
+
+One noticeable pattern that could unfurl more of this story is how the journal *Feminist Theory* seems to hold the bulk of the topic proportions of both Women's Studies (a.k.a. the discipline housed within the neoliberal corporate university) and Politics of Difference. It is startlingly different from both *Signs* and *Feminist Review*, each of which were founded over a decade prior. There's a similar effect appearing to influence Queer Theory, though that might also be explained by *Feminist Theory* having started post *Gender Trouble*.
+
+# Mapping Queer Studies
+
+```{r}
+#| label: topic prevalence barchart gender
+#| echo: false
+
+gender_topics <- as.character(c(4, 6, 9, 11,
+                                15, 18, 24, 26,
+                                29, 35, 50, 61, 
+                                63, 65, 81, 75))
+
+labelProp %>%
+  mutate(Label = reorder_within(Label, Proportion, Topic)) %>%
+  filter(Topic %in% gender_topics) %>%
+  ggplot(aes(Label, Proportion)) +
+  geom_col(fill = "#ada8c3", color = "#101c2a", linewidth = .25) +
+  ggtitle("Figure 6: Corpus level topic proportion estimates of gender topics",
+          subtitle = "Structural topic model fit using K = 85 topics") +
+  ylab("topic proportions") +
+  xlab("") +
+  scale_x_reordered() +
+  coord_flip() +
+  theme_linedraw() +
+  theme(axis.text.x = element_text(color = "black", angle = 45, 
+                                   vjust = 1, hjust=1),
+        axis.text.y = element_text(color = "black")) +
+  theme(plot.subtitle=element_text(size=8, color="black", vjust = -1)) +
+  theme(plot.title=element_text(size=12, face="bold", colour="black", vjust=-1))
+```
+
+The critical demarcation of gender as an unstable category is very frequently attributed to Judith Butler and the publication of their seminal book, *Gender Trouble* in 1989. So much so that they included the following passage in their second, and final preface added in 1999:
+
+"The aim of the text was to open up the field of possibility for gender without dictating which kinds of possibilities ought to be realized. One might wonder what use 'opening up possibilities' finally is, but no one who has understood what it is to live in the social world as what is"impossible," illegible, unrealizable, unreal, and illegitimate is likely to posit that questions" (viii).
+
+As a person who has traversed the category of gender once or twice in my life (and will continue to do so) I wholeheartedly endorse Butler's justification for this text. It feels as though, through this book, I have language to name not only my own internal discontent around gender, but to also that of each individual as *also* performing their own variation of gender.
+
+This debate rages on today even as we have blown past the definitive "Transgender Tipping Point" as proclaimed by *Time Magazine* in 2014 (include Awkward-Rich argument 2022). We see it in the "bathroom bills" and book bans being peddled by conservative politicians to cohere around a unified policy platform of transphobia with their constituents. I imagine this suggestion does not read as very surprising to many people who generally keep up with headlines and chyrons from any of the major news outlets, which itself is indicative of the vast amount of discussion happening around gender and structuralist frameworks in a post 2016 presidential election world.
+
+Fig. 7 below highlights the sixteen topics which feel most closely adjacent to Butler's argument of gender as a site where performance and performativity congeals around the formation of sex and sexuality.
+
+```{r}
+#| label: topic prevalence over time gender
+#| echo: false
+
+#select_topics <- as.character(c(1:85))
+
+df <- pubYear_effect %>%
+  mutate(topicLabel = recode(topic, !!!topic_labels), 
+         .after = topic) %>%
+  filter(topic %in% select_topics)
+
+df2 <- select(df, -topicLabel)
+
+ggplot(df, aes(x = covariate.value,
+               y = estimate)) +
+  geom_line(data = df2, colour = "grey70", linewidth = .25, alpha = .8) +
+  geom_line(aes(colour = topicLabel), linewidth = 1) +
+  ggtitle("Figure 7: Visualizing topical prevalence effects related to gender over time",
+          subtitle = "Corpus includes all articles from Signs, Feminist Review, and Feminist Theory from 1975-2016.") +
+  xlab("") +
+  ylab("covariate effect") +
+  theme_linedraw() +
+  facet_wrap(~ topicLabel) +
+  theme(legend.position = "none") +
+  theme(strip.text = element_text(size = 8)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.subtitle=element_text(size = 8, color = "black")) +
+  theme(plot.title=element_text(size = 12, face = "bold", colour="black")) +
+  scale_color_manual(values = turbo(16))
+```
+
+```{r}
+#| label: queer theory wordcloud
+#| echo: false
+
+word75 <- td_betaViz %>%
+  filter(topic == 75) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word75$term, 
+          freq = word75$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+The topic Queer Theory is located at the start of the third row. In the 70s, the prevelance dips below 0 before a slight, but steady incline until its first significant local maximum point in 2005. 2008 sees another dip, followed by another peak and subsequent decline cycle around 2013. Yet again, it's hard to draw to definitive of a conclusion from this, but there are similar phenomenons happening in other topics in this same approximate timeframe.
+
+```{r}
+#| label: disability/trans wordcloud
+#| echo: false
+
+word4 <- td_betaViz %>%
+  filter(topic == 4) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word4$term, 
+          freq = word4$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+Take Disability/Trans for example. The topic appears to follow a similar path as it reaches a peak around 2008 before dropping to its lowest point in 2012. Here, as well as in a chunk of time in the 1980s, time has a negative effect on the prevalence of Disability/Trans. Not only has the prevelance of dialogue diminished, but there appears to be a significant move away from the topic as the negative effect of *publicationDate* is around .03 in 2012.
+
+One explanation of Disability/Trans could involve the merging of Disability Studies and Trans Studies within feminist theory, as taken up by scholars such as Jasbir Puar and later Cameron Awkward-Rich. The following peak, then, may be the incorporation of trans topics within disability ones. The max of this topic also aligns with the so-called "Transgender Tipping Point" in 2014. This doesn't explain everything happening though since the line plunges back down in 2016, the last year of this dataset. Our understanding of what is happening between those years may rely somewhat on topical prevalence patterns in the six years since 2016.
+
+```{r}
+#| label: activism/protest wordcloud
+#| echo: false
+
+word61 <- td_betaViz %>%
+  filter(topic == 61) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word61$term, 
+          freq = word61$beta,
+          scale = c(2, .5),
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+```{r}
+#| label: media/online wordcloud
+#| echo: false
+
+word11 <- td_betaViz %>%
+  filter(topic == 11) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word11$term, 
+          freq = word11$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+The next topics from Fig. 7 that stand out are Activism/Protest and Media/Online. Applying my own experience and knowledge of the past 40 years, the surge in Activism/Protest in 2005 could be indicative of the Occupy Wallstreet movement. Similarly, the prevalence of Media/Online appears to crater in 2008, also the time of the financial crisis in the U.S. After 2008, the topic leaps upward until 2014, when its prevalence effect declines.
+
+Focusing back on Activism/Protest, the peak in 2015 aligns with the 2014 murder of 18-year old Michael Brown at the hands of Ferguson police officer Darren Wilson. The subsequent protests and activism sparked the rise of the national Black Lives Matter movement as we know it (Ransby 2018). The spike in 2015 appears to map onto this rise precisely, however there is likely more to the story within other topics.
+
+# Mapping Black Feminism
+
+```{r}
+#| label: topic prevalence barchart race
+#| echo: false
+
+race_topics <- as.character(c(1, 12, 24, 29,
+                              31, 32, 33, 35,
+                              61, 62, 63, 64, 
+                              71, 73, 74, 76))
+
+labelProp %>%
+  mutate(Label = reorder_within(Label, Proportion, Topic)) %>%
+  filter(Topic %in% race_topics) %>%
+  ggplot(aes(Label, Proportion)) +
+  geom_col(fill = "#ada8c3", color = "#101c2a", linewidth = .25) +
+  ggtitle("Figure 8: Corpus level topic proportion estimates of gender topics",
+          subtitle = "Structural topic model fit using K = 85 topics") +
+  ylab("topic proportions") +
+  xlab("") +
+  scale_x_reordered() +
+  coord_flip() +
+  theme_linedraw() +
+  theme(axis.text.x = element_text(color = "black", angle = 45, 
+                                   vjust = 1, hjust=1),
+        axis.text.y = element_text(color = "black")) +
+  theme(plot.subtitle=element_text(size=8, color="black", vjust = -1)) +
+  theme(plot.title=element_text(size=12, face="bold", colour="black", vjust=-1))
+```
+
+Setting Butler's relatively verbose style of prose aside (add footnote about philosophy and Butler's thesis contributing to this style), *Gender Trouble*'s critics also hone in on Butler's lack of a racial lens within their concept of performance and performativity -- a complaint also leveraged against Karl Marx in his analysis of the struggle between economic classes.
+
+There are seeds of Marxism planted in the roots of Black feminism, particularly as it relates to the formation of the Combahee River Collective (CRC) when they . The CRC issued their statement in 1977, which is also cited as a genealogical origin of contemporary understandings of identity politics. Fig. 9 below highlights the sixteen topics which feel most closely adjacent to this convergence of Black feminism, plus a few topics that can be tied to the lineages Black feminism speaks to.
+
+```{r}
+#| label: topic prevalence over time race
+#| echo: false
+
+df <- pubYear_effect %>%
+  mutate(topicLabel = recode(topic, !!!topic_labels), 
+         .after = topic) %>%
+  filter(topic %in% race_topics)
+
+df2 <- select(df, -topicLabel)
+
+ggplot(df, aes(x = covariate.value,
+               y = estimate)) +
+  geom_line(data = df2, colour = "grey70", linewidth = .25, alpha = .8) +
+  geom_line(aes(colour = topicLabel), linewidth = 1) +
+  ggtitle("Figure 9: Visualizing topical prevalence effects related to race over time",
+          subtitle = "Corpus includes all articles from Signs, Feminist Review, and Feminist Theory from 1975-2016.") +
+  xlab("") +
+  ylab("covariate effect") +
+  theme_linedraw() +
+  facet_wrap(~ topicLabel) +
+  theme(legend.position = "none") +
+  theme(strip.text = element_text(size = 8)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.subtitle=element_text(size = 8, color = "black")) +
+  theme(plot.title=element_text(size = 12, face = "bold", colour="black")) +
+  scale_color_manual(values = turbo(16))
+```
+
+```{r}
+#| label: black feminism wordcloud
+#| echo: false
+
+word31 <- td_betaViz %>%
+  filter(topic == 31) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word31$term, 
+          freq = word31$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+```{r}
+#| label: marxism wordcloud
+#| echo: false
+
+word33 <- td_betaViz %>%
+  filter(topic == 33) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word33$term, 
+          freq = word33$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+Starting in the third row, Marxism is very prevalent compared these topics in the early-80s before tapering down to the mid-line in 1995 and remaining there. Black Feminism, on the other hand, begins below the mid-line and has a near constant slope up until 1994 when it declines a bit until it peaks again in 2014. This may likewise be a result of the progression of the Movement for Black Lives described by Barbara Ransby in *Making All Black Lives Matter*.
+
+The bump in the mid-90s, however, is a bit surprising. Considering how the 1980s are oft cited as the decade of Black feminism, I would have expected the decline to happen closer to the turn into the 1990s. It is as if Black feminist thinkers took the torch from political Marxists in the 1970s, gloriously carried it into the mid-90s where the work of Judith Butler became the shiny object gaining everyone's attention.
+
+Importantly, the prevalence of Black Feminism never went away in the model. The lowest point of prevalence for the topic was in 2009, but it never broke the mid-line and eventually grew to its resurgent peak in 2014.
+
+```{r}
+#| label: intersectionality wordcloud
+#| echo: false
+
+word63 <- td_betaViz %>%
+  filter(topic == 63) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word63$term, 
+          freq = word63$beta,
+          scale = c(2, .5),
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+The next topic that plays into this conversation is Intersectionality. The term intersectionality was coined by legal scholar Kimberlé Crenshaw in her 1989 essay "Demarginalizing the Intersection of Race and Sex". In her piece Crenshaw makes the case that Black women have been made systematically invisible under the precedence of the law that did not allow lawsuits to claim discrimination across multiple categories of difference. As such, a Black woman could file a lawsuit claiming gender discrimination OR racial discrimination, but not both.
+
+Even if Black women were able to file discrimination charges across gender and race, only very recently has legal precedence shifted to include statistical analysis as proof of discrimination. Prior to this shift there typically required verbal or written proof of active discrimination above and beyond the countless systemic injustices at play.
+
+```{r}
+#| label: legal studies wordcloud
+#| echo: false
+
+word73 <- td_betaViz %>%
+  filter(topic == 73) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word73$term, 
+          freq = word73$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+Looking at the topic prevalence effect over time of Intersectionality, there is a slight/moderate bump in the mid-90s before tapering off until 2008 when it sees a steady sloped incline (not dissimilar from that of Black Feminism) before its apex around 2013. Comparatively, the topic Legal Studies shares a similar ripple effect with a minor peak seeming to occur in the 90s at the time of minor peaks in Queer Theory and Intersectionality.
+
+Connecting back to Black Feminism, the activation of the BLM movement seemed to facilitate a return to Intersectionality, though perhaps in a different way than it was originally intended. In fact, post 2000 the topics Legal Studies and Intersectionality appear to be inverted trends of one another -- as one increases in prevalence, the other decreases.
+
+```{r}
+#| label: law wordcloud
+#| echo: false
+
+word64 <- td_betaViz %>%
+  filter(topic == 64) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word64$term, 
+          freq = word64$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+Perhaps, the topic Intersectionality is more closely aligned with this new formation of the term while Legal Studies and/or Law topics may contain dialogue with intersectionalities initial definition. A deeper dive into the topics and the documents associated with them would help provide clarity to the interpretability of the model.
+
+
+# Discussion
+
+```{r}
+#| label: topic prevalence over time difference
+#| echo: false
+
+select_topics <- as.character(c(1, 3, 4, 11, 
+                                12, 24, 31, 33, 
+                                35, 61, 62, 63, 
+                                64, 73, 75, 76))
+
+df <- pubYear_effect %>%
+  mutate(topicLabel = recode(topic, !!!topic_labels), 
+         .after = topic) %>%
+  filter(topic %in% select_topics)
+
+df2 <- select(df, -topicLabel)
+
+ggplot(df, aes(x = covariate.value,
+               y = estimate)) +
+  geom_line(data = df2, colour = "grey70", linewidth = .25, alpha = .8) +
+  geom_line(aes(colour = topicLabel), linewidth = 1) +
+  ggtitle("Figure 12: Visualizing topical prevalence effects over time",
+          subtitle = "Corpus includes all articles from Signs, Feminist Review, and Feminist Theory from 1975-2016.") +
+  xlab("") +
+  ylab("covariate effect") +
+  theme_linedraw() +
+  facet_wrap(~ topicLabel) +
+  theme(legend.position = "none") +
+  theme(strip.text = element_text(size = 8)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.subtitle=element_text(size = 8, color = "black")) +
+  theme(plot.title=element_text(size = 12, face = "bold", colour="black")) +
+  scale_color_manual(values = turbo(16))
+```
+
+```{r}
+#| label: difference wordcloud
+#| echo: false
+
+word35 <- td_betaViz %>%
+  filter(topic == 35) %>%
+  select(term, beta) %>%
+  arrange(desc(beta))
+
+set.seed(5443)
+wordcloud(words = word35$term, 
+          freq = word35$beta,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = .45,
+          color = "#1e232c",
+          family = "sans",
+          font = 4)
+```
+
+The topic labeled Politics of Difference carries a significant portion of the topical prevalence in the corpus and becomes more engorged over time. Politics of Difference shows continual growth until plummeting after the turn of the millennium, reaching its low in 2008. The wordplot above shows the most probable words associated with this topic. The trends of Politics of Difference also show signs of what Clare Hemmings might have been on about when researching for her paper. 
+
+Starting in 2008, the trending direction (positive vs. negative) of topical prevalence for Politics of Difference is opposite that of Women's Studies and holds through the end of this dataset in 2016. In fact, Women's Studies sees a prevalence spike in the mid-90s and again in 2008 at the time of the financial crises, yet dips to the mid-line in 2013 just prior to the rise of the Black Lives Matter movement. Why might there be an increase in Women's Studies in the event in 2008 but not in 2014? Why do Women's Studies and Politics of Difference share reverse trends from 2008 onward? What about Obama?
+
+## Stories in the text-as-data
+
+For a moment, suppose that these topic estimations are a true reflection of the dialogue in feminist journals. Drawing back on my prior analysis, it appears as if the trends in Politics of Difference over time may be more emblematic of coalition building across difference as opposed to just the difference itself.
+
+Jumping back to the beginning (of the corpus), feminist theory begins in the mid-70s by publishing law papers related to critical race theory -- the *actual* critical race theory, as opposed to the misrepresentation often debated in popular discourse around curriculum in schools. The law transitions into Marxist critiques circulating within feminism in the 70s, which is then reframed and incorporated into Black feminist frameworks proposed by the likes of the Combahee River Collective.
+
+Black feminism maintains a consistent growth through the entirety of the 1980s and even into the mid-90s, when intersectionality and legal studies also become slightly more prevalent in the discussion. Mid-90s marks the time of increasing anxiety from the provocations of Judith Butler and Queer Studies becomes more prevalent in the journals. 1995 also marks the first hump for the discussion of Women's Studies as a discipline within the capital U-niversity in these journals, and for the discussion of race in the U.S.
+
+It feels as if the escalating uproar surrounding gender equality, then racial justice, then gender abolition, then anti-capitalism into the new millennium, all culminated with the financial crisis in 2008. The Politics of Difference (the topic, but also in this thought exercise, "the truth") drops below the mid-line exactly at 2008. This suggests that more unifying themes could have been circulating at this time, identifying similarities to connect on rather than differences to detach from. It may also be a return to Marxism as a primary source of class struggle analysis since, as we saw with Black feminism, Marxist frameworks have seeds planted across various studies located within the umbrella of feminist theory.
+
+Hemmings' paper in 2005 "Telling Feminist Stories" speaks to a desire to unite across difference through a reflexive practice of incorporating a robust diversity of voices in citation tactics. Her attention to citation trends of Foucault, Butler, and Wittig were spot on to the frequencies I saw in the three names over time. In her book, she makes a claim to have read every article in six prominent feminist journals (and a few others) for a period of five or six years -- that is a lot of reading!
+
+Her paper could thus be seen as a clarvoyant foretelling of the polarization she saw crescendoing, actively disrupting coalitions attempting to unite to undo racial capitalism and the perilous effects it has on life outcomes. By maintaining reflexive and amenable citation tactics, Hemmings believes we can also maintain a more honest interpretation of the genealogy of feminist thought throughout linear time. The importance of how the "story one tells about the past is always motivated by the position one occupies or wishes to occupy in the present" (13). Moreover, how the stories begin to infiltrate and warp the theory to an essentialized version of itself.
+
+Applying my framework from above on politics of difference as the inverse of coalition building, this lack of prevalence of this topical trend in a timeframe can represent a unifying front that works across these burgeoning sub-fields of feminist studies, all happening at a time that seems to necessitate it most. More specifically here, exacerbating income inequality unites across difference due to the ongoing and rampant exploitation of labor resulting from policies implemented by Reagan and his ilk in the 70s and 80s. An era also responsible for codifying racial discrimination and legacies of slavery into public policy and the social provisions of our contemporary life (see Dorothy Roberts *Killing the Black Body*).
+
+Is this apparent coalition shift in 2008 a reflection of feminist theory functioning as designed to challenge preconceived or naturalized assumptions of categories of difference and their resulting hierarchies? A when-all-else-fails, we-got-your-back kinda deal? As if a national (and to an extent global) crisis disrupting the status quo could act as a reminder to disparate factions of feminist theory that they, in fact, share a significant overlap in both their critiques of racial capitalism and in their efforts to dismantle it. What other events have been pivotal in generating topical prevalence in feminist journals?
+
+Feminist studies as a discipline may be averse to computational approaches, as evidenced by the lack of applications in the literature. Feminism would be justifiably skeptical if only for its pervasive use and misuse in a profit-or-else economy. Even in rigorous research settings, text-as-data methods rely heavily on researcher decision-making, from early pre-processing steps to more advanced topic modeling techniques built upon those earlier decisions.
+
+Unsupervised learning methods such as structural topic modeling can act as a supplement to more traditional close-reading techniques used by critical theorists and opens up a different perspective on the genealogies of thought and theory such as the ones I have highlighted here. STM's inclusion of metadata covariates can further enrich the exploratory process of navigating archives. Still, who better than feminist theorists to offer their crucial critique and insights into the ever growing field of natural language processing.
+
+# Next Steps
+
+-   Continue to filter out any more lurking non-essential tokens
+    and duplicates in the corpus adding noise to stm models.
+
+-   Incorporate bigram and trigram data to build more granular
+    corpus. Example: adjusting token counts to include words
+    proceeding possessive 'womens' \-- it may be interesting to
+    examine what 'women's' is referring to across temporalities.
+
+-   More structural topic models using other metadata features
+    as prevalence and content covariates to measure their effect.
+
+-   Apply network analysis techniques to explore co-occurrences
+    between meaningful keywords, journals, decades, and/or
+    authors. Could reveal an overarching structure to the
+    publication of feminist theory.
+
+-   Get more data. Adding the text from 2016 to 2022 would give indications into how the field reoriented itself through the Trump presidency and COVID-19.
+
+## Brief bibliography
+
+The next iteration of this project will attempt to address the questions near the end of the discussion section and draw parallels beyond 2016, including the election of Donald Trump, and the global pandemic and protests against police violence in 2020.
+
+Below are a selection of texts (including some referenced already) and how I generally see them fitting into my larger argument, which remains lodged in my brain at this time. I am missing some critiques of work from within feminism that could fill the gap leading up to the financial crisis in 2008. I missed that week in class for WGSS 701 and was not able to do the readings so that will be a good place for me to start.
+
+I have not read the paper by SJ Concannon et al. (2018), but that appears to be very close to my argument so it will likewise give me an idea of where my approach fits in. Essentially I want to incorporate Hemmings ideas of co-opting narratives along with Olufemi Taiwo's idea of the powerful co-opting identity politics. I'm not sure if there's something there, but it's my underlying framework entering into this project's next steps.
+
+Please let me know if you have any suggestions for readings, computational and/or feminist based, that might help offer clarity to my thoughts!
+
+### Main Ideas
+
+Goldstone, Andrew, Susana Galán, C. Laura Lovin, Andrew Mazzaschi, and Lindsey Whitmore. (2014). An Interactive Topic Model of Signs, edited by Andrew Goldstone. *Signs at 40*.
+
+Hemmings, C. (2011).*Why Stories Matter: the political grammar of feminist theory*. Duke University Press.
+
+Lucas, Nielsen, Roberts, Stewart, Storer, and Tingley. (2015). "Computer assisted text analysis for comparative politics". *Political Analysis*.
+
+Roberts, ME, Stewart BM & Edoardo M. Airoldi (2016). "A Model of Text for Experimentation in the Social Sciences", *Journal of the American Statistical Association*.
+
+Concannon, SJ, Balaam, M, Simpson, E, Comber, R. (2018). "Applying Computational Analysis to Textual Data from the Wild: A Feminist Perspective". In Proceedings of the 2018 CHI Conference on Human Factors in Computing Systems (CHI '18). Association for Computing Machinery, New York, NY, USA, Paper 226, 1–13. 
+
+### Identity politics
+
+Táíwò, O. (2022). *Elite Capture: How the powerful took over identity politics (and everything else)*. Haymarket Press.
+
+Butler, J. (1990). *Gender Trouble: Feminism and the subversion of identity*. Routledge Press.
+
+Taylor, KY. (2012). *How We Get Free: Black feminism and the Combahee River Collective*. Haymarket Press. 
+
+### Theory/Art/Affect
+
+Ahmed, S. (2017). *Living a Feminist Life*. Duke University Press.
+
+Berlant, L. (2011). *Cruel Optimism*. Duke University Press.
+
+Culler, J. (1997) *Literary Theory: A very short introduction*. Oxford University Press
+
+Lorde, A. (1984). *Sister Outsider: Essays and speeches*. Crossing Press.
+
+Nelson, M. (2021). *On Freedom: Four songs of care and constraint*. Graywolf Press.
+
+Sedgwick, E. (2003). *Touching Feeling: Affect, Pedagogy, Performativity*. Duke University Press.
+
+### Trans/Disability
+
+Awkward-Rich, C. (2022). *The Terrible We: Thinking with trans maladjustment*. Duke University Press.
+
+Puar, J. K. (2020). “I would rather be a cyborg than a goddess: Becoming-intersectional in assemblage theory". In Feminist Theory Reader (pp. 405-415). Routledge.
+
+### Black feminism
+
+I think I'd like to include Spillars (and/or Snorton) in with this/other sections, but am unsure if a) it works, and b) how to do it. I also could use more explicit connections between Marxism and Black feminism, if that is worth aligning.
+
+Crenshaw, K. (1997). “Demarginalizing the Intersection of Race and Sex: A Black Feminist Critique of Antidiscrimination Doctrine, Feminist Theory and Antiracist Policies.” University of Chicago Legal Forum 1989, no. 1.
+
+Roberts, D. (1997). *Killing the Black Body: Race, Reproduction, and the meaning of liberty*. Pantheon Books.
+
+### Historical movements
+
+Ransby, B. (2018). *Making All Black Lives Matter: Reimagining freedom in the Twenty-first century*. University of California Press.
+
+Stern, AM. (2020). *Proud Boys and the White Ethnostate: How the alt-right is warping the american imagination*. Beacon Press.
+
+Stryker, S. (2008). *Transgender History*. Seal Press.
+
+### Technology
+
+Benjamin, R. (2019). *Race After Technology: Abolitionist tools for the new Jim Crow*. Polity. 
+
+Eubanks, V. (2018). *Automating Inequality: How high-tech tools profile, police, and punish the poor*. St. Martin's Press
+
+Haraway, D. (1991). *Simians, Cyborgs and Women: The Reinvention of Nature*. Routledge Press. 
+
+### Technical Methods
+
+Roberts, Stewart, Tingley, Lucas, Leder-Luis, Gadarian, Albertson, and Rand. (2014). "Structural topic models for open-ended survey responses". *American Journal of Political Science*.
+
+Roberts ME, Stewart BM, & Tingley D. (2019). “stm: An R Package for Structural Topic Models.” *Journal of Statistical Software*, 91(2), 1–40.
+
+
